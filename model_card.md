@@ -1,180 +1,157 @@
-# 🎧 Model Card: Music Recommender Simulation
+# 🎧 Model Card: VibeFinder 1.0
 
-## 1. Model Name  
+## 1. Overview
 
-**VibeFinder 1.0**
+**VibeFinder** recommends 5 songs from a 45-song catalog. The user gives up to four preferences: favorite genre, mood, target energy (0–1), and whether they like acoustic music. Every song gets a score, and the top 5 are shown with the reasons each one was picked.
 
----
+It is a **rule-based, content-based recommender**. It does not learn, has no listening history, and uses only what the user types in. The "AI" parts of the project are around it: an automated evaluator, consistency checks, and an agent gate that checks code changes written by an AI agent.
 
-## 2. Goal / Task  
+**Intended use:** a classroom project for learning how recommenders work and how weight choices create bias.
 
-VibeFinder suggests songs you will probably like.
-
-You tell it four things: your favorite genre, your mood, how much energy you want, and (optionally) whether you like acoustic music. It gives every song in the catalog a score. Then it shows you the top 5, with the reasons each song was picked.
-
-It does not learn from you over time. It does not know what you listened to before. It only uses what you type in.
+**Not intended for:** real listeners or a real app (the catalog is tiny and made up), judging whether a genre or artist is "good," or anything sensitive like mood or mental-health support.
 
 ---
 
-## 3. Data Used  
+## 2. How It Works
 
-- **Size:** 18 songs. The starter file had 10. I added 8 more to cover more genres and moods.
-- **Features for each song:** title, artist, genre, mood, energy, tempo, valence (how positive it sounds), danceability, and acousticness.
-- **Genres:** 15 different ones, including pop, lofi, rock, jazz, metal, classical, folk, edm, and hip-hop.
-- **Moods:** 14 different ones, like happy, chill, intense, melancholic, and romantic.
+**Scoring.** Each song earns points for four checks. Every point comes with a written reason, such as "mood match: happy (+1.00)".
 
-**Limits of the data**
-
-- It is tiny. A real app has millions of songs.
-- Most genres have just one song. Lofi has 3 and pop has 2.
-- It leans calm. 10 of the 18 songs have energy below 0.6.
-- There are no songs with energy between 0.58 and 0.75.
-- Some combinations don't exist at all. For example, there is no song that is both high-energy and sad.
-- The labels are my own judgment. Someone else might call a song "chill" that I called "relaxed."
-
----
-
-## 4. Algorithm Summary  
-
-Think of VibeFinder as a judge at a talent show. It looks at every song, gives it points, and lines them up from highest to lowest.
-
-**How a song earns points**
-
-1. **Genre.** Exact match gets full points. A related genre (like "indie pop" when you asked for "pop") gets half.
-2. **Mood.** Exact match gets full points. A similar mood gets half. For example, "relaxed" and "focused" are in the same calm family as "chill."
-3. **Energy.** This is about being *close*, not being *loud*. The closer a song's energy is to what you asked for, the more points it gets.
-4. **Acoustic sound.** A small bonus. If you like acoustic music, acoustic songs get a little extra. If you like produced music, it flips. If you didn't say, this step is skipped.
-
-**The point values**
-
-| Rule | Original design | Current code ("Weight Shift" experiment) |
+| Check | Max points | How points are earned |
 |---|---|---|
-| Genre (exact / related) | 1.5 / 0.75 | 0.75 / 0.375 |
-| Mood (exact / similar) | 1.0 / 0.5 | 1.0 / 0.5 |
-| Energy (max) | 1.5 | 3.0 |
-| Acoustic (max) | 0.5 | 0.5 |
-| **Highest possible score** | 4.5 | 5.25 |
+| Genre | 0.75 | Full for an exact match, half for a related genre (one name contains the other, like "indie pop" and "pop") |
+| Mood | 1.0 | Full for an exact match, half for a mood in the same family (calm, high energy, upbeat, reflective) |
+| Energy | 3.0 | `3.0 × (1 − \|song energy − target\|)`, so closeness wins, not loudness |
+| Acoustic | 0.5 | `0.5 × acousticness` if the user likes acoustic, otherwise `0.5 × (1 − acousticness)` |
 
-In the original design, genre was the biggest single rule. In the experiment, I doubled energy and cut genre in half to see what would happen. Now energy matters most.
+The highest possible score is 5.25. These are the "Weight Shift" weights: the original design had genre at 1.5 and energy at 1.5. Halving genre and doubling energy made recommendations fit the requested vibe better, but it is also the main source of the biases in Section 5. Tempo, valence, and danceability are in the data but not scored.
 
-Tempo, valence, and danceability are in the data, but VibeFinder ignores them.
+**Ranking and guardrails.**
 
-Every recommendation lists its reasons, like "genre match: pop (+0.75)." You can see exactly why a song was picked.
-
----
-
-## 5. Observed Behavior / Biases  
-
-**What works well**
-
-- When a song matches all your choices, it always wins. Happy Pop gets Sunrise City. Chill Lofi gets Library Rain.
-- Opposite users get opposite lists. Happy Pop and Chill Lofi share zero songs.
-- The reasons make it easy to check if a pick makes sense.
-
-**Bias: a filter bubble around calm songs**
-
-The catalog has more calm songs than loud ones. So calm songs show up for more people. I tested 2,310 different users (every genre, mood, and energy level). Library Rain made the top 5 for 43% of them. Iron Furnace, the loudest song, made it for only 20%.
-
-**Bias: your favorite genre can get ignored**
-
-With the current weights, energy beats genre. For 62% of the users I tested, the #1 song was not in their favorite genre. A lofi fan who wants high energy gets no lofi at all, because every lofi song is quiet.
-
-**Other limits**
-
-- **It fails silently.** If you ask for something that doesn't exist, it never tells you. It just hands you the closest thing.
-- **Unknown words score zero.** If you type "sad" instead of "melancholic," no song gets mood points.
-- **Same songs for everyone.** Gym Hero shows up for lots of different users because it is pop and very energetic.
-- **No variety.** Two songs by the same artist can both land in your top 5.
+- Songs are sorted by score. Ties are broken by song id, so file order never changes the results.
+- At most one song per artist appears in a top 5.
+- Each song shows a **match %**: its score divided by the best score possible for the preferences given. If the #1 song is under 40%, VibeFinder says it found no strong match.
+- Bad input (energy outside 0–1, an empty profile, `k < 1`) and bad data (missing columns, out-of-range values, duplicate ids) stop with an error that names the problem.
+- Unknown genres or moods still return results, with a warning that the word earned no points.
+- Every run logs the profile, the weights, the results, and any warnings to `logs/recommender.log`.
 
 ---
 
-## 6. Evaluation Process  
+## 3. Data
 
-**What I did**
+- **45 songs**, **15 genres** with exactly 3 songs each, **14 moods**, and **31 artists** (14 of them have 2 songs).
+- Features: title, artist, genre, mood, energy, tempo, valence, danceability, acousticness.
+- The starter file had 10 songs. I grew it to 18, then to 45 so that every genre is the same size. If one genre then gets recommended more than another, the cause is the scoring, not the catalog.
+- I added songs to fill gaps: loud sad songs, songs with energy between 0.58 and 0.75, and songs that break their genre's usual sound (a calm EDM track, an intense classical piece).
 
-1. I ran 7 user profiles and read the top 5 for each.
-2. I tried "tricky" profiles with conflicting wishes to see if I could fool the scoring.
-3. I ran the "Weight Shift" experiment: doubled energy and halved genre, then compared results.
-4. I ran every combination of genre, mood, and energy (2,310 users) to count how often each song appears.
+**Limits:** the songs and artists are made up, 3 songs per genre is a small sample, genre and mood labels are my own judgment, and the catalog leans calm (20 of 45 songs have energy below 0.6).
 
-All results below use the current "Weight Shift" weights.
+---
 
-**Profiles I tested**
+## 4. Evaluation
 
-| Profile | Genre / mood / energy | #1 result |
+I tested VibeFinder four ways. Full tables are in the README's [Reliability and Evaluation](README.md#reliability-and-evaluation) section.
+
+| Method | What it covers | Result |
 |---|---|---|
-| Happy Pop | pop / happy / 0.8 | Sunrise City |
-| Chill Lofi | lofi / chill / 0.35, likes acoustic | Library Rain |
-| Deep Intense Rock | rock / intense / 0.9, dislikes acoustic | Storm Runner |
-| EDM Euphoric | edm / euphoric / 0.95 | Strobe Horizon |
-| Acoustic Folk | folk / melancholic / 0.3, likes acoustic | Letters I Never Sent |
-| High-Energy Sad (tricky) | pop / melancholic / 0.9 | Gym Hero |
-| Lofi but Intense (tricky) | lofi / intense / 0.95 | Gym Hero |
+| Human evaluation | 10 profiles judged against criteria written before running them | 8 pass, 1 partial, 1 fail |
+| Automated evaluation (`python -m src.evaluate`) | 360 profiles: 15 genres × 4 moods × 3 energy levels × acoustic yes/no | 8 of 10 checks pass |
+| Automated tests (`pytest`) | Command-line demo, guardrails, consistency, diversity formulas, agent gate | 95 of 95 pass |
+| Agent gate (`python -m src.agent_gate`) | Rejects AI-written changes that break tests, lower targets, or touch protected files | Rejected a planted bug and a lowered threshold; accepted the fix |
 
-The five normal profiles got the #1 song I expected. The two tricky ones did not.
+**Key results from the 360-profile evaluation**
 
-**Comparing pairs of profiles**
+| Measure | VibeFinder | Without artist rule | Random picks |
+|---|---|---|---|
+| Different genres in a top 5 | 84% | 74% | 91% |
+| Lists with a repeated artist | 0% | 47% | 14% |
+| Songs ever recommended | 100% | 100% | 100% |
+| Average match of recommended songs | 70% | 70% | 50% |
 
-- **Happy Pop vs. Chill Lofi:** Happy Pop gets upbeat songs (energy 0.75–0.93). Chill Lofi gets quiet study music (energy 0.28–0.42). No songs overlap. That makes sense: they asked for opposite energy.
-- **Chill Lofi vs. Acoustic Folk:** Both get soft, acoustic songs. Three songs show up in both lists. Only the #1 song is different, and it's the one in each user's genre. After that, a calm user just gets "calm songs." There's only one folk song, so there isn't much else to give.
-- **Deep Intense Rock vs. EDM Euphoric:** Same five songs, different order. Each user's own genre comes first. That's fair: both want very loud music, and "intense" and "euphoric" are in the same mood family.
-- **Happy Pop vs. Deep Intense Rock:** Gym Hero is in both lists. For Rock it fits well. For Happy Pop it's a weaker fit, but it still gets points for being pop and energetic.
-- **Happy Pop vs. High-Energy Sad:** Both chose pop. The sad user still gets happy and intense pop, with Gym Hero at #1. There's no loud sad song in the catalog, so the mood just gets dropped.
-- **Chill Lofi vs. Lofi but Intense:** Both love lofi. The intense user gets zero lofi songs. All lofi songs are quiet, and energy points now outweigh genre points.
-
-**Why "Gym Hero" keeps showing up**
-
-Gym Hero was in the top 5 for 5 of my 7 profiles. VibeFinder scores songs like a checklist, and Gym Hero checks a lot of boxes. It's pop, so pop fans give it genre points. It's very energetic (0.93), and energy is now worth the most. Its mood, "intense," is close to other energetic moods. It's never a *perfect* match for someone who wants happy pop. But it's "close enough" on everything, and there aren't many other loud pop songs to beat it.
-
-**What surprised me**
-
-I thought favorite genre would matter most. With the current weights, it often doesn't. I was also surprised that VibeFinder never admits when it can't find what you want. The High-Energy Sad user gets confident picks, and none of them are sad.
+- **Consistent:** identical results across repeat runs, 5 shuffled catalogs, a reload, and 1,080 reworded inputs ("POP", "  pop "). Moving energy by ±0.02 keeps 93% of songs on average (60% in the worst case).
+- **Failed checks:** metal gets 0.20× its fair share of recommendations (target: 0.5–2.0×), and metal fans see a metal song in only 33% of their lists (target: 50%). I set both targets before seeing the results.
 
 ---
 
-## 7. Intended Use and Non-Intended Use  
+## 5. Limitations and Biases
 
-**Intended use**
+**Energy outweighs favorite genre.** Energy is worth 3.0 points and genre only 0.75. For 49% of test profiles, the #1 song is not in the user's favorite genre.
 
-- A classroom project to learn how recommenders work.
-- Exploring how changing weights changes the results.
-- Finding a few songs from a small, fixed list that roughly match a mood.
+- **Metal is nearly invisible.** All three metal songs have energy of 0.89 or higher, so they only score well for very loud requests. Rock fans (54%) and ambient fans (62%) also often miss their genre.
+- **A lofi fan who wants high energy gets no lofi at all.** All three lofi songs have energy between 0.35 and 0.42.
 
-**Not intended for**
+**A calm filter bubble.** Calm songs fit more requests. Moonlit Sonata No. 2 is in the top 5 for 31% of test profiles; Iron Furnace, the loudest song, is in it for 1%.
 
-- Real users or a real music app. The catalog is far too small.
-- Judging whether a genre or artist is "good." Scores only measure fit to one person's inputs.
-- Anything important, like mental health support. A "sad" request doesn't mean the system understands how someone feels.
-- Learning someone's taste over time. It has no memory and no listening history.
+**Text matching is literal.**
+
+- Words outside the catalog earn nothing. "sad" scores zero because the catalog says "melancholic". VibeFinder warns about this but doesn't fix it.
+- Related genres are matched by substring. That helps "indie pop", but "kpop" also gets partial pop credit and no "unknown genre" warning.
+- The mood families are my own judgment; someone else might group "confident" differently.
+
+**The artist rule hides good songs.** It removed all repeats, but an artist's second song can disappear. Morning Etude (same artist as Moonlit Sonata No. 2) reaches the top 5 for only 1% of profiles.
+
+**Confidence is not satisfaction.** Match % measures fit to the typed preferences, not whether someone would enjoy the song. Gym Hero scores 83% for a lofi fan because of mood and energy alone.
+
+**Testing gaps.**
+
+- The evaluation grid tops out at energy 0.8, so it under-tests listeners who want very loud music, which is exactly where metal scores well.
+- The agent gate only catches what the tests and checks measure. Its code scan uses simple patterns that a determined agent could get around.
 
 ---
 
-## 8. Ideas for Improvement  
+## 6. Misuse and Prevention
 
-1. **Balance the weights and the data.** Bring genre back up so it isn't drowned out by energy. Add more songs, especially loud songs in quiet genres (like upbeat lofi) and songs in the 0.6–0.75 energy range.
-2. **Say when there's no good match.** If no song fits the mood, tell the user. Also warn when they type a mood or genre the system doesn't know, like "sad."
-3. **Add variety.** Limit each artist to one song in the top 5. Use valence so "sad" vs. "happy" is measured by sound, not just by a label.
+VibeFinder is low-stakes, but the same design could be misused in a real recommender.
+
+| Possible misuse | How this project guards against it |
+|---|---|
+| **Hidden promotion:** quietly boosting a label's artists or a genre by editing weights or adding a special rule | Every song lists its reasons. Weights are logged with every run. The result fingerprint changes whenever any result changes. The agent gate rejects code that hard-codes a genre, artist, title, or song id. |
+| **Faking fairness:** lowering a target so a failing check reads PASS | Targets were written down before the results. The agent gate locks `src/evaluate.py` and rejected a test where the metal target was lowered from 50% to 30%. |
+| **Treating it as emotional support:** a "sad" request taken as understanding how someone feels | The intended-use statement rules this out. Unknown mood words like "sad" get an explicit warning instead of a confident answer. |
+| **Rubber-stamping AI code:** treating the gate's ACCEPTED as approval to merge | The gate never merges. Every accepted change still needs human review, and every attempt is logged to `logs/agent_runs.jsonl`. |
+| **Slipping in data changes:** an agent editing the song catalog to make checks pass | Data files are locked. Changing them requires a human to pass `--allow-data`, and that approval is logged. |
+
+**Privacy:** VibeFinder stores no names or accounts. The log keeps the preferences entered for each run, so a real version would need a retention policy for that log.
 
 ---
 
-## 9. Personal Reflection  
+## 7. What Surprised Me While Testing Reliability
 
-**My biggest learning moment**
+- **A bug made the scores better.** I planted a bug that rewarded songs *far* from the target energy. The evaluation went from 8 to 9 passing checks, because metal fans happened to get more metal. Only the tests caught it: a guardrail test and a command-line test both failed. Judged on the evaluation alone, an AI agent would have kept the bug.
+- **Hand-picked tests looked fine.** All 7 of my original profiles got sensible results. The metal problem only appeared once I measured 360 profiles.
+- **Edge cases find what normal cases miss.** The "kpop" substring issue only showed up when I deliberately typed a word that isn't in the catalog.
+- **Small changes matter more than expected.** Nudging energy by just 0.02 can swap 2 of the 5 songs, because many songs score within a few hundredths of each other. Two songs tie exactly at 3.97 for the "sad pop" profile, which is why fixed tie-breaking was necessary.
+- **Cheating is one line.** Changing `0.50` to `0.30` would make the report look clean. That convinced me the targets had to be locked in code, not just documented.
 
-It was the "Weight Shift" experiment. I changed just two numbers: energy went up and genre went down. That one change completely flipped who the system served well. A lofi fan who wanted high energy suddenly got no lofi at all. I learned that the weights aren't small details. They *are* the recommender's opinion about what matters.
+---
 
-**How AI tools helped, and when I double-checked**
+## 8. Collaboration with AI
 
-AI helped me come up with tricky test profiles I wouldn't have thought of, like "high energy but sad." It also found real bugs. Typing " Pop " with extra spaces gave a lower score than "pop." An energy of 5.0 made every score negative. It also wrote quick scripts to test thousands of users at once.
+I used an AI coding assistant throughout the project. It helped me:
 
-But I had to double-check it. Its numbers only applied to the weights in the code at that moment. When I changed the weights, the results changed too. Some of its first explanations also went further than the data showed, so I re-ran the profiles and checked each claim against the real output before keeping it.
+- brainstorm tricky test profiles, like "high energy but sad";
+- find real bugs, such as " Pop " with spaces scoring lower than "pop", and energy 5.0 making every score negative;
+- write the evaluation script, the consistency checks, and the agent gate;
+- draft documentation.
 
-**What surprised me about simple algorithms**
+I treated its output as a draft. I re-ran profiles and checked each claim against the real output. More than once its numbers were out of date after I changed the weights, and some early explanations claimed more than the data showed.
 
-VibeFinder is just adding up points. There's no learning and no AI inside it. But when it lists reasons like "mood match: happy," it feels smart and personal. That's also a little dangerous. It sounds just as confident when it's wrong, like giving happy pop to someone who asked for sad songs. Showing reasons makes a system *feel* trustworthy, even when it isn't.
+**A suggestion I accepted:** lock the tests and evaluation targets so an AI agent can't change them. When I asked about guardrails for an agent that writes, tests, and fixes code, the AI pointed out that the easiest way for an agent to "fix" my two metal failures would be to lower the target in `src/evaluate.py`, not to improve the recommender. I accepted this as written. The gate hashes the tests, the targets, the data, and itself, and rejects any change to them. It fits my project because I had already committed to setting targets before seeing results, and a test confirmed it works: lowering the metal target was rejected.
 
-**What I'd try next**
+**A suggestion I did not accept as written:** the AI's first plan for the agentic workflow was much larger. It included a full agent loop with retry limits, sandboxing, separate git branches, a test that compares the README's weight table against the code, and a planted-bug test in which *the agent* finds and fixes the bug. I scoped it down to the gate and the planted-bug test. I also changed that test to check that the gate *rejects* the bug and *accepts* the fix, instead of depending on an agent to find it. The full loop was out of scope, since my project doesn't run an agent yet. A test that depends on an AI's output also wouldn't give the same result every time, which goes against the consistency my evaluation is built on.
 
-- Use valence (how positive a song sounds) so "sad" is measured by the music, not just a label.
-- Add a "no good match found" message so the system is honest when it can't help.
-- Grow the catalog, and limit each artist to one song in the top 5 for more variety.
+---
+
+## 9. Ideas for Improvement
+
+1. **Rebalance the weights.** Raise genre so energy doesn't drown it out, then re-run the evaluation to see if the metal checks pass.
+2. **Fill data gaps.** Add an upbeat lofi song and a calmer metal song.
+3. **Widen the test grid.** Add energy levels of 0.05 and 0.95 so loud and very quiet genres are tested fairly.
+4. **Stricter genre matching.** Use an explicit list of related genres instead of substring matching, so "kpop" isn't treated as pop.
+5. **Use valence** so "sad" vs. "happy" is measured by how a song sounds, not just its label.
+6. **Connect a real agent to the gate**, limited to 3–5 attempts, with every accepted change reviewed by me.
+
+---
+
+## 10. Personal Reflection
+
+My biggest lesson came from the "Weight Shift" experiment. Changing two numbers flipped who the system served well. The weights aren't details; they *are* the recommender's opinion about what matters. VibeFinder is just adding up points, yet showing reasons like "mood match: happy" makes it feel smart and trustworthy, and it sounds just as confident when it's wrong. That's why I spent this project making it *prove* it works: measuring fairness across hundreds of profiles, checking that results never drift, and making sure neither I nor an AI agent could quietly move the targets.

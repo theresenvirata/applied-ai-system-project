@@ -17,3 +17,30 @@ id,title,artist,genre,mood,energy,tempo_bpm,valence,danceability,acousticness
 16,Velvet Hours,Jaylen Monroe,r&b,romantic,0.48,72,0.64,0.70,0.32
 17,Strobe Horizon,Pulse Theory,edm,euphoric,0.95,128,0.79,0.91,0.02
 18,Letters I Never Sent,Hollow Pines,folk,melancholic,0.30,88,0.22,0.38,0.91
+19,Paper Hearts,Lena Brooks,pop,melancholic,0.64,102,0.35,0.66,0.30
+20,Broken Compass,Voltline,rock,melancholic,0.83,140,0.30,0.55,0.15
+21,Highway Static,The Rust Kings,rock,confident,0.68,126,0.58,0.62,0.25
+22,Tidepool Drift,Orbit Bloom,ambient,peaceful,0.15,56,0.55,0.30,0.95
+23,Northern Lights Hum,Glass Meadow,ambient,focused,0.33,70,0.50,0.35,0.80
+24,Blue Corner Booth,Slow Stereo,jazz,romantic,0.44,96,0.66,0.58,0.84
+25,Brass Alley Strut,The Uptown Six,jazz,happy,0.71,138,0.82,0.74,0.70
+26,Chrome Skyline,Retro Grid,synthwave,euphoric,0.86,120,0.72,0.80,0.08
+27,Cassette Summer,Laser Bloom,synthwave,nostalgic,0.62,100,0.52,0.68,0.15
+28,Paper Boats,Marigold Kids,indie pop,carefree,0.66,116,0.78,0.72,0.45
+29,Glow in the Dark,Indigo Parade,indie pop,moody,0.55,108,0.45,0.64,0.40
+30,Late Night Cipher,Kilo Verse,hip-hop,moody,0.61,88,0.40,0.78,0.12
+31,Victory Lap,DJ Marlo,hip-hop,euphoric,0.88,98,0.80,0.90,0.06
+32,Gravel Road Anthem,Tess Harlan,country,happy,0.74,122,0.85,0.70,0.55
+33,Empty Rocking Chair,Willow Creek Band,country,melancholic,0.38,76,0.28,0.45,0.82
+34,Allegro in Red,Vienna Rooftop Ensemble,classical,intense,0.72,150,0.50,0.30,0.90
+35,Morning Etude,Clara Vance,classical,focused,0.26,72,0.58,0.25,0.96
+36,Cathedral of Ash,Grave Signal,metal,melancholic,0.89,110,0.15,0.40,0.06
+37,Thunder Pact,Ironclad Choir,metal,confident,0.93,176,0.45,0.50,0.04
+38,Sunday Market,Sunny Roots,reggae,happy,0.63,90,0.86,0.82,0.48
+39,Roots and Rain,Kaya Lion,reggae,relaxed,0.45,76,0.70,0.74,0.52
+40,Slow Burn Satellite,Amara Lane,r&b,moody,0.57,84,0.46,0.72,0.28
+41,Gold on the Dancefloor,Jaylen Monroe,r&b,confident,0.73,104,0.76,0.84,0.15
+42,Afterglow Drop,Pulse Theory,edm,happy,0.84,126,0.83,0.88,0.04
+43,Deep Current,Sublevel,edm,chill,0.52,118,0.55,0.76,0.10
+44,Campfire Alphabet,Hollow Pines,folk,nostalgic,0.42,96,0.60,0.50,0.88
+45,River Town Reel,The Fern Fiddlers,folk,carefree,0.69,132,0.80,0.70,0.85
